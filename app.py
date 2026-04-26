@@ -8,8 +8,7 @@ from combinedClasses import pipelined4StageFwd, pipelined5StageFwd, pipelined4St
 
 # Set page configuration
 st.set_page_config(
-    page_title="Plaksha Orbital Pipeline Deck",
-    page_icon="🚀",
+    page_title="FoCS MIPS Simulator",
     layout="wide"
 )
 
@@ -47,8 +46,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Title and description
-st.markdown('<p class="main-header">🚀 Plaksha Orbital Pipeline Deck</p>', unsafe_allow_html=True)
-st.markdown('<p class="sub-header">Next-Generation Processor Pipeline Simulator</p>', unsafe_allow_html=True)
+st.markdown('<p class="main-header">FoCS MIPS Simulator</p>', unsafe_allow_html=True)
+# st.markdown('<p class="sub-header">Next-Generation Processor Pipeline Simulator</p>', unsafe_allow_html=True)
 
 # Initialize session state
 if 'instructions' not in st.session_state:
@@ -64,7 +63,7 @@ if 'simulator' not in st.session_state:
 
 # Sidebar for configuration
 with st.sidebar:
-    st.header("⚙️ Configuration")
+    st.header("Configuration")
     
     pipeline_type = st.selectbox(
         "Pipeline Type",
@@ -80,7 +79,7 @@ with st.sidebar:
     
     st.divider()
     
-    st.header("📝 Add Instructions")
+    st.header("Add Instructions")
     instruction_type = st.selectbox("Instruction Type", ["ADD", "SUB", "LW", "SW"])
     
     if instruction_type in ["ADD", "SUB"]:
@@ -104,7 +103,7 @@ with st.sidebar:
     
     st.text(f"Preview: {instruction_str}")
     
-    if st.button("➕ Add Instruction", use_container_width=True):
+    if st.button("Add Instruction", use_container_width=True):
         if len(st.session_state.instructions) < 10:
             st.session_state.instructions.append(instruction_str)
             st.rerun()
@@ -113,7 +112,7 @@ with st.sidebar:
     
     st.divider()
     
-    if st.button("▶️ Run Simulation", type="primary", use_container_width=True):
+    if st.button("Run Simulation", type="primary", use_container_width=True):
         if len(st.session_state.instructions) == 0:
             st.error("Please add at least one instruction!")
         else:
@@ -139,7 +138,7 @@ with st.sidebar:
                 sys.stdout = old_stdout
                 st.error(f"Error during simulation: {str(e)}")
     
-    if st.button("🔄 Reset", use_container_width=True):
+    if st.button("Reset", use_container_width=True):
         st.session_state.instructions, st.session_state.schedule, st.session_state.fwd, st.session_state.raw, st.session_state.simulator = [], None, [], [], None
         st.rerun()
 
@@ -159,7 +158,7 @@ with col1:
         
         # NEW: RAW Hazards Section
         st.divider()
-        st.header("⚠️ RAW Hazards Detected")
+        st.header("RAW Hazards Detected")
 
         if st.session_state.schedule is None:
             st.info("Run simulation to analyze hazards.")
@@ -182,7 +181,7 @@ with col1:
         st.info("No instructions added yet.")
 
 with col2:
-    st.header("🎯 Pipeline Visualization")
+    st.header("Pipeline Visualization")
     
     if st.session_state.schedule is not None:
         schedule = st.session_state.schedule
