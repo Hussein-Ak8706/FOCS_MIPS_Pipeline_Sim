@@ -1,167 +1,259 @@
+
 import streamlit as st
 import sys
-import json
-import streamlit.components.v1 as components
 from io import StringIO
 from parse import parseAll
-from combinedClasses import pipelined4StageFwd, pipelined5StageFwd, pipelined4StageStall, pipelined5StageStall
+from combinedClasses import (
+    pipelined4StageFwd,
+    pipelined5StageFwd,
+    pipelined4StageStall,
+    pipelined5StageStall
+)
 
-# Set page configuration
+# ---------------------------------------------------
+# PAGE CONFIG
+# ---------------------------------------------------
 st.set_page_config(
-    page_title="FoCS MIPS Simulator",
+    page_title="Plaksha Orbital Pipeline Deck",
+    page_icon="🚀",
     layout="wide"
 )
 
-# Custom CSS for better styling
+# ---------------------------------------------------
+# CSS
+# ---------------------------------------------------
 st.markdown("""
 <style>
-    .main-header {
-        font-size: 2.5rem;
-        font-weight: bold;
-        color: #1f77b4;
-        text-align: center;
-        margin-bottom: 1rem;
-    }
-    .sub-header {
-        font-size: 1.2rem;
-        color: #666;
-        text-align: center;
-        margin-bottom: 2rem;
-    }
-    .instruction-box {
-        background-color: #f0f2f6;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        margin-bottom: 1rem;
-    }
-    .stButton>button {
-        width: 100%;
-    }
-    .hazard-text {
-        color: #d32f2f;
-        font-weight: bold;
-        font-size: 0.9rem;
-    }
+.main-header {
+    font-size: 2.4rem;
+    font-weight: bold;
+    color: #1f77b4;
+    text-align:center;
+}
+.sub-header {
+    text-align:center;
+    color:gray;
+    margin-bottom:2rem;
+}
+.hazard-text {
+    color:#d32f2f;
+    font-weight:bold;
+}
+.pipeline-viz {
+    width:100%;
+    border-collapse:collapse;
+    font-family:monospace;
+}
+.pipeline-viz th {
+    background:#1f77b4;
+    color:white;
+    padding:8px;
+    border:1px solid #ddd;
+}
+.pipeline-viz td {
+    border:1px solid #ddd;
+    padding:8px;
+    text-align:center;
+}
+.stage-IF { background:#e3f2fd; font-weight:bold; }
+.stage-ID { background:#f3e5f5; font-weight:bold; }
+.stage-EX { background:#fff3e0; font-weight:bold; }
+.stage-MEM { background:#e8f5e9; font-weight:bold; }
+.stage-WB { background:#fce4ec; font-weight:bold; }
+.stage-MEMWB { background:#e0f2f1; font-weight:bold; }
+.stage-STALL { background:#ffebee; color:red; font-weight:bold; }
+.fwd-label {
+    display:block;
+    font-size:0.65rem;
+    margin-top:2px;
+}
 </style>
 """, unsafe_allow_html=True)
 
-# Title and description
-st.markdown('<p class="main-header">FoCS MIPS Simulator</p>', unsafe_allow_html=True)
-# st.markdown('<p class="sub-header">Next-Generation Processor Pipeline Simulator</p>', unsafe_allow_html=True)
+# ---------------------------------------------------
+# TITLE
+# ---------------------------------------------------
+st.markdown('<div class="main-header">🚀 Plaksha Orbital Pipeline Deck</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-header">Step-by-Step Processor Pipeline Simulator</div>', unsafe_allow_html=True)
 
-# Initialize session state
-if 'instructions' not in st.session_state:
-    st.session_state.instructions = []
-if 'schedule' not in st.session_state:
-    st.session_state.schedule = None
-if 'fwd' not in st.session_state:
-    st.session_state.fwd = []
-if 'raw' not in st.session_state: # NEW: RAW Hazards session state
-    st.session_state.raw = []
-if 'simulator' not in st.session_state:
-    st.session_state.simulator = None
+# ---------------------------------------------------
+# SESSION STATE
+# ---------------------------------------------------
+defaults = {
+    "instructions": [],
+    "schedule": None,
+    "fwd": [],
+    "raw": [],
+    "simulator": None,
+    "current_cycle": 1,
+    "max_cycle": 1
+}
 
-# Sidebar for configuration
+for key, val in defaults.items():
+    if key not in st.session_state:
+        st.session_state[key] = val
+
+# ---------------------------------------------------
+# SIDEBAR
+# ---------------------------------------------------
 with st.sidebar:
-    st.header("Configuration")
-    
+
+    st.header("⚙️ Configuration")
+
     pipeline_type = st.selectbox(
         "Pipeline Type",
-        ["4-Stage Pipeline", "5-Stage Pipeline"],
-        help="4-Stage: IF, ID, EX, MEM/WB\n5-Stage: IF, ID, EX, MEM, WB"
+        ["4-Stage Pipeline", "5-Stage Pipeline"]
     )
-    
+
     hazard_mode = st.selectbox(
         "Hazard Resolution",
-        ["Forwarding (Advanced)", "Stalling (Basic)"],
-        help="Forwarding: Uses data forwarding to minimize stalls\nStalling: Uses only stalls to resolve hazards"
+        ["Forwarding (Advanced)", "Stalling (Basic)"]
     )
-    
+
     st.divider()
-    
-    st.header("Add Instructions")
+
+    st.header("📝 Add Instruction")
+
     instruction_type = st.selectbox("Instruction Type", ["ADD", "SUB", "LW", "SW"])
-    
+
     if instruction_type in ["ADD", "SUB"]:
-        col1, col2, col3 = st.columns(3)
-        with col1: dst_reg = st.selectbox("Destination", [f"R{i}" for i in range(1, 32)], key="dst")
-        with col2: src1_reg = st.selectbox("Source 1", [f"R{i}" for i in range(1, 32)], key="src1")
-        with col3: src2_reg = st.selectbox("Source 2", [f"R{i}" for i in range(1, 32)], key="src2")
-        instruction_str = f"{instruction_type} {dst_reg}, {src1_reg}, {src2_reg}"
+        c1, c2, c3 = st.columns(3)
+
+        with c1:
+            dst = st.selectbox("Dst", [f"R{i}" for i in range(1, 32)], key="dst")
+
+        with c2:
+            s1 = st.selectbox("Src1", [f"R{i}" for i in range(1, 32)], key="src1")
+
+        with c3:
+            s2 = st.selectbox("Src2", [f"R{i}" for i in range(1, 32)], key="src2")
+
+        instruction = f"{instruction_type} {dst}, {s1}, {s2}"
+
     elif instruction_type == "LW":
-        col1, col2, col3 = st.columns([2, 1, 2])
-        with col1: dst_reg = st.selectbox("Destination", [f"R{i}" for i in range(1, 32)], key="dst")
-        with col2: offset = st.number_input("Offset", min_value=0, max_value=1024, value=0, key="offset")
-        with col3: base_reg = st.selectbox("Base Reg", [f"R{i}" for i in range(1, 32)], key="base")
-        instruction_str = f"{instruction_type} {dst_reg}, {offset}({base_reg})"
-    else:  # SW
-        col1, col2, col3 = st.columns([2, 1, 2])
-        with col1: src_reg = st.selectbox("Source", [f"R{i}" for i in range(1, 32)], key="src")
-        with col2: offset = st.number_input("Offset", min_value=0, max_value=1024, value=0, key="offset")
-        with col3: base_reg = st.selectbox("Base Reg", [f"R{i}" for i in range(1, 32)], key="base")
-        instruction_str = f"{instruction_type} {src_reg}, {offset}({base_reg})"
-    
-    st.text(f"Preview: {instruction_str}")
-    
-    if st.button("Add Instruction", use_container_width=True):
+        c1, c2, c3 = st.columns(3)
+
+        with c1:
+            dst = st.selectbox("Dst", [f"R{i}" for i in range(1, 32)], key="lw_dst")
+
+        with c2:
+            off = st.number_input("Offset", 0, 1024, 0)
+
+        with c3:
+            base = st.selectbox("Base", [f"R{i}" for i in range(1, 32)], key="lw_base")
+
+        instruction = f"LW {dst}, {off}({base})"
+
+    else:
+        c1, c2, c3 = st.columns(3)
+
+        with c1:
+            src = st.selectbox("Src", [f"R{i}" for i in range(1, 32)], key="sw_src")
+
+        with c2:
+            off = st.number_input("Offset ", 0, 1024, 0)
+
+        with c3:
+            base = st.selectbox("Base ", [f"R{i}" for i in range(1, 32)], key="sw_base")
+
+        instruction = f"SW {src}, {off}({base})"
+
+    st.code(instruction)
+
+    if st.button("➕ Add Instruction", use_container_width=True):
         if len(st.session_state.instructions) < 10:
-            st.session_state.instructions.append(instruction_str)
+            st.session_state.instructions.append(instruction)
             st.rerun()
-        else:
-            st.error("Maximum 10 instructions allowed!")
-    
+
     st.divider()
-    
-    if st.button("Run Simulation", type="primary", use_container_width=True):
-        if len(st.session_state.instructions) == 0:
-            st.error("Please add at least one instruction!")
+
+    # RUN
+    if st.button("▶️ Run Simulation", type="primary", use_container_width=True):
+
+        if not st.session_state.instructions:
+            st.error("Add at least one instruction.")
+
         else:
             try:
-                parsed_instrs = parseAll(st.session_state.instructions)
+                parsed = parseAll(st.session_state.instructions)
+
                 regAvail = {f"R{i}": -1 for i in range(1, 32)}
+
                 old_stdout = sys.stdout
                 sys.stdout = StringIO()
-                
+
+                # Select simulator
                 if pipeline_type == "4-Stage Pipeline":
-                    simulator = pipelined4StageFwd(regAvail, parsed_instrs) if hazard_mode == "Forwarding (Advanced)" else pipelined4StageStall(regAvail, parsed_instrs)
+                    if hazard_mode == "Forwarding (Advanced)":
+                        sim = pipelined4StageFwd(regAvail, parsed)
+                    else:
+                        sim = pipelined4StageStall(regAvail, parsed)
+
                 else:
-                    simulator = pipelined5StageFwd(regAvail, parsed_instrs) if hazard_mode == "Forwarding (Advanced)" else pipelined5StageStall(regAvail, parsed_instrs)
-                
-                simulator.createShedule()
+                    if hazard_mode == "Forwarding (Advanced)":
+                        sim = pipelined5StageFwd(regAvail, parsed)
+                    else:
+                        sim = pipelined5StageStall(regAvail, parsed)
+
+                sim.createShedule()
+
                 sys.stdout = old_stdout
-                st.session_state.schedule = simulator.schedule
-                st.session_state.fwd = simulator.fwd if hasattr(simulator, 'fwd') else []
-                st.session_state.raw = simulator.raw if hasattr(simulator, 'raw') else [] # NEW: Capture RAW hazards
-                st.session_state.simulator = simulator
+
+                st.session_state.schedule = sim.schedule
+                st.session_state.fwd = sim.fwd if hasattr(sim, "fwd") else []
+                st.session_state.raw = sim.raw if hasattr(sim, "raw") else []
+                st.session_state.simulator = sim
+                st.session_state.current_cycle = 1
+
+                # max cycle
+                mc = 1
+                for row in sim.schedule:
+                    if row:
+                        mc = max(mc, max(row.keys()))
+
+                st.session_state.max_cycle = mc
+
                 st.rerun()
+
             except Exception as e:
                 sys.stdout = old_stdout
-                st.error(f"Error during simulation: {str(e)}")
-    
-    if st.button("Reset", use_container_width=True):
-        st.session_state.instructions, st.session_state.schedule, st.session_state.fwd, st.session_state.raw, st.session_state.simulator = [], None, [], [], None
+                st.error(str(e))
+
+    if st.button("🔄 Reset", use_container_width=True):
+        for key, val in defaults.items():
+            st.session_state[key] = val
         st.rerun()
 
-# Main content area
-col1, col2 = st.columns([1, 2])
+# ---------------------------------------------------
+# MAIN LAYOUT
+# ---------------------------------------------------
+left, right = st.columns([1, 2])
 
-with col1:
-    st.header("📋 Instruction Sequence")
+# ---------------------------------------------------
+# LEFT PANEL
+# ---------------------------------------------------
+with left:
+
+    st.header("📋 Instructions")
+
     if st.session_state.instructions:
+
         for i, instr in enumerate(st.session_state.instructions):
-            col_a, col_b = st.columns([4, 1])
-            with col_a: st.text(f"I{i+1}: {instr}")
-            with col_b:
-                if st.button("🗑️", key=f"del_{i}"):
+            c1, c2 = st.columns([4, 1])
+
+            with c1:
+                st.text(f"I{i+1}: {instr}")
+
+            with c2:
+                if st.button("🗑️", key=f"del{i}"):
                     st.session_state.instructions.pop(i)
                     st.rerun()
-        
-        # NEW: RAW Hazards Section
+
         st.divider()
-        st.header("RAW Hazards Detected")
+        st.header("⚠️ RAW Hazards")
 
         if st.session_state.schedule is None:
-            st.info("Run simulation to analyze hazards.")
+            st.info("Run simulation first.")
 
         else:
             found = False
@@ -171,118 +263,101 @@ with col1:
                     found = True
                     for dep in deps:
                         st.markdown(
-                            f'<p class="hazard-text">● I{i+1} depends on I{dep+1}</p>',
+                            f'<div class="hazard-text">● I{i+1} depends on I{dep+1}</div>',
                             unsafe_allow_html=True
                         )
 
             if not found:
-                st.success("No RAW hazards detected in this configuration.")
-    else:
-        st.info("No instructions added yet.")
+                st.success("No RAW hazards.")
 
-with col2:
-    st.header("Pipeline Visualization")
-    
+# ---------------------------------------------------
+# RIGHT PANEL
+# ---------------------------------------------------
+with right:
+
+    st.header("🎯 Pipeline Visualization")
+
     if st.session_state.schedule is not None:
+
+        c1, c2, c3 = st.columns(3)
+
+        with c1:
+            if st.button("⬅ Previous"):
+                st.session_state.current_cycle = max(
+                    1,
+                    st.session_state.current_cycle - 1
+                )
+                st.rerun()
+
+        with c2:
+            if st.button("➡ Next"):
+                st.session_state.current_cycle = min(
+                    st.session_state.max_cycle,
+                    st.session_state.current_cycle + 1
+                )
+                st.rerun()
+
+        with c3:
+            st.metric("Current Cycle", st.session_state.current_cycle)
+
+        visible = st.session_state.current_cycle
         schedule = st.session_state.schedule
         fwd = st.session_state.fwd
-        
-        # --- Create a mapping for forwarding info ---
-        fwd_src_map = {} 
-        fwd_dst_map = {} 
-        
-        for f in fwd:
-            src_idx, src_cycle = f[0]
-            dst_idx, dst_cycle = f[1]
-            
-            if (src_idx, src_cycle) not in fwd_src_map:
-                fwd_src_map[(src_idx, src_cycle)] = []
-            fwd_src_map[(src_idx, src_cycle)].append(f"to I{dst_idx+1}, C{dst_cycle}")
-            
-            if (dst_idx, dst_cycle) not in fwd_dst_map:
-                fwd_dst_map[(dst_idx, dst_cycle)] = []
-            fwd_dst_map[(dst_idx, dst_cycle)].append(f"from I{src_idx+1}, C{src_cycle}")
 
-        # Calculate max cycle
-        max_cycle = 0
-        for instr in schedule:
-            if instr:
-                max_cycle = max(max_cycle, max(instr.keys()))
-        
-        # HTML table styling
-        html = """
-        <style>
-            .pipeline-viz {
-                width: 100%;
-                border-collapse: collapse;
-                margin-top: 1rem;
-                font-family: 'Courier New', monospace;
-                font-size: 0.9rem;
-            }
-            .pipeline-viz th {
-                background-color: #1f77b4;
-                color: white;
-                padding: 10px; border: 1px solid #ddd;
-                text-align: center; font-weight: bold;
-            }
-            .pipeline-viz td {
-                border: 1px solid #ddd;
-                padding: 8px;
-                text-align: center;
-                background-color: white;
-                min-height: 60px;
-            }
-            .stage-IF { background-color: #e3f2fd !important; color: #1565c0; font-weight: bold; }
-            .stage-ID { background-color: #f3e5f5 !important; color: #6a1b9a; font-weight: bold; }
-            .stage-EX { background-color: #fff3e0 !important; color: #e65100; font-weight: bold; }
-            .stage-MEM { background-color: #e8f5e9 !important; color: #2e7d32; font-weight: bold; }
-            .stage-WB { background-color: #fce4ec !important; color: #c2185b; font-weight: bold; }
-            .stage-MEMWB { background-color: #e0f2f1 !important; color: #00695c; font-weight: bold; }
-            .stage-STALL { background-color: #ffebee !important; color: #c62828; font-weight: bold; }
-            .fwd-label {
-                font-size: 0.65rem;
-                font-weight: normal;
-                display: block;
-                line-height: 1.1;
-                margin-top: 4px;
-                padding: 2px;
-                border-top: 1px dashed rgba(0,0,0,0.1);
-            }
-            .fwd-to { color: #2e7d32; }
-            .fwd-from { color: #c62828; }
-        </style>
-        <table class="pipeline-viz">
-            <tr><th>Instruction</th>
-        """
-        
-        for c in range(1, max_cycle + 1):
+        # forwarding maps
+        src_map = {}
+        dst_map = {}
+
+        for item in fwd:
+            sidx, sc = item[0]
+            didx, dc = item[1]
+
+            src_map.setdefault((sidx, sc), []).append(f"to I{didx+1}")
+            dst_map.setdefault((didx, dc), []).append(f"from I{sidx+1}")
+
+        html = '<table class="pipeline-viz"><tr><th>Instr</th>'
+
+        for c in range(1, visible + 1):
             html += f"<th>C{c}</th>"
-        html += "</tr>"
-        
-        for i, instr in enumerate(schedule):
-            html += f'<tr><td class="instr-label">I{i+1}</td>'
-            for c in range(1, max_cycle + 1):
-                stage = instr.get(c, "")
-                if stage:
-                    stage_class = f"stage-{stage.replace('/', '')}"
-                    fwd_info = ""
-                    if (i, c) in fwd_src_map:
-                        for text in fwd_src_map[(i, c)]:
-                            fwd_info += f'<span class="fwd-label fwd-to">fwd {text}</span>'
-                    if (i, c) in fwd_dst_map:
-                        for text in fwd_dst_map[(i, c)]:
-                            fwd_info += f'<span class="fwd-label fwd-from">fwd {text}</span>'
-                    html += f'<td class="{stage_class}">{stage}{fwd_info}</td>'
-                else:
-                    html += '<td></td>'
-            html += '</tr>'
-        
-        html += '</table>'
-        st.markdown(html, unsafe_allow_html=True)
-    else:
-        st.info("Run simulation to see visualization.")
 
-# Footer
+        html += "</tr>"
+
+        for i, row in enumerate(schedule):
+
+            html += f"<tr><td><b>I{i+1}</b></td>"
+
+            for c in range(1, visible + 1):
+
+                stage = row.get(c, "")
+
+                if stage:
+                    cls = stage.replace("/", "")
+                    txt = stage
+
+                    if (i, c) in src_map:
+                        for t in src_map[(i, c)]:
+                            txt += f'<span class="fwd-label">{t}</span>'
+
+                    if (i, c) in dst_map:
+                        for t in dst_map[(i, c)]:
+                            txt += f'<span class="fwd-label">{t}</span>'
+
+                    html += f'<td class="stage-{cls}">{txt}</td>'
+
+                else:
+                    html += "<td></td>"
+
+            html += "</tr>"
+
+        html += "</table>"
+
+        st.markdown(html, unsafe_allow_html=True)
+
+    else:
+        st.info("Run simulation first.")
+
+# ---------------------------------------------------
+# FOOTER
+# ---------------------------------------------------
 st.divider()
-st.markdown("<div style='text-align: center; color: #666;'>Plaksha Orbital Computing Deck | CS2011: Foundations of Computer Systems</div>", unsafe_allow_html=True)
 
