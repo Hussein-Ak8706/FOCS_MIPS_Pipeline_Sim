@@ -14,8 +14,7 @@ from combinedClasses import (
 # PAGE CONFIG
 # ---------------------------------------------------
 st.set_page_config(
-    page_title="Plaksha Orbital Pipeline Deck",
-    page_icon="🚀",
+    page_title="FoCS MIPS Simulator",
     layout="wide"
 )
 
@@ -73,8 +72,8 @@ st.markdown("""
 # ---------------------------------------------------
 # TITLE
 # ---------------------------------------------------
-st.markdown('<div class="main-header">🚀 Plaksha Orbital Pipeline Deck</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-header">Pipeline Simulator (Step + Full View)</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-header">FoCS MIPS Simulator</div>', unsafe_allow_html=True)
+# st.markdown('<div class="sub-header">Pipeline Simulator (Step + Full View)</div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------
 # SESSION STATE
@@ -99,7 +98,7 @@ for key, val in defaults.items():
 # ---------------------------------------------------
 with st.sidebar:
 
-    st.header("⚙️ Configuration")
+    st.header("Configuration")
 
     pipeline_type = st.selectbox(
         "Pipeline Type",
@@ -112,7 +111,7 @@ with st.sidebar:
     )
 
     st.divider()
-    st.header("📝 Add Instruction")
+    st.header("Add Instruction")
 
     instruction_type = st.selectbox(
         "Instruction Type",
@@ -166,14 +165,14 @@ with st.sidebar:
 
     st.code(instruction)
 
-    if st.button("➕ Add Instruction", use_container_width=True):
+    if st.button("Add Instruction", use_container_width=True):
         if len(st.session_state.instructions) < 10:
             st.session_state.instructions.append(instruction)
             st.rerun()
 
     st.divider()
 
-    if st.button("▶️ Run Simulation", type="primary", use_container_width=True):
+    if st.button("Run Simulation", type="primary", use_container_width=True):
 
         if not st.session_state.instructions:
             st.error("Add at least one instruction.")
@@ -223,7 +222,7 @@ with st.sidebar:
                 sys.stdout = old_stdout
                 st.error(str(e))
 
-    if st.button("🔄 Reset", use_container_width=True):
+    if st.button("Reset", use_container_width=True):
         for key, val in defaults.items():
             st.session_state[key] = val
         st.rerun()
@@ -238,7 +237,7 @@ left, right = st.columns([1, 2])
 # ---------------------------------------------------
 with left:
 
-    st.header("📋 Instructions")
+    st.header("Instructions")
 
     if st.session_state.instructions:
 
@@ -255,7 +254,7 @@ with left:
                     st.rerun()
 
         st.divider()
-        st.header("⚠️ RAW Hazards")
+        st.header("RAW Hazards")
 
         if st.session_state.schedule is None:
             st.info("Run simulation first.")
@@ -280,7 +279,7 @@ with left:
 # ---------------------------------------------------
 with right:
 
-    st.header("🎯 Pipeline Visualization")
+    st.header("Pipeline Visualization")
 
     if st.session_state.schedule is not None:
 
