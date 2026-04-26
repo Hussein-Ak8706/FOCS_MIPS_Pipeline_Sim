@@ -38,6 +38,11 @@ st.markdown("""
     .stButton>button {
         width: 100%;
     }
+    .hazard-text {
+        color: #d32f2f;
+        font-weight: bold;
+        font-size: 0.9rem;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -52,6 +57,8 @@ if 'schedule' not in st.session_state:
     st.session_state.schedule = None
 if 'fwd' not in st.session_state:
     st.session_state.fwd = []
+if 'raw' not in st.session_state: # NEW: RAW Hazards session state
+    st.session_state.raw = []
 if 'simulator' not in st.session_state:
     st.session_state.simulator = None
 
@@ -125,6 +132,7 @@ with st.sidebar:
                 sys.stdout = old_stdout
                 st.session_state.schedule = simulator.schedule
                 st.session_state.fwd = simulator.fwd if hasattr(simulator, 'fwd') else []
+                st.session_state.raw = simulator.raw if hasattr(simulator, 'raw') else [] # NEW: Capture RAW hazards
                 st.session_state.simulator = simulator
                 st.rerun()
             except Exception as e:
@@ -132,7 +140,7 @@ with st.sidebar:
                 st.error(f"Error during simulation: {str(e)}")
     
     if st.button("🔄 Reset", use_container_width=True):
-        st.session_state.instructions, st.session_state.schedule, st.session_state.fwd, st.session_state.simulator = [], None, [], None
+        st.session_state.instructions, st.session_state.schedule, st.session_state.fwd, st.session_state.raw, st.session_state.simulator = [], None, [], [], None
         st.rerun()
 
 # Main content area
@@ -148,6 +156,28 @@ with col1:
                 if st.button("🗑️", key=f"del_{i}"):
                     st.session_state.instructions.pop(i)
                     st.rerun()
+        
+        # NEW: RAW Hazards Section
+        st.divider()
+        st.header("⚠️ RAW Hazards Detected")
+        if st.session_state.raw:
+            found = False
+            for i, deps in enumerate(st.session_state.raw):
+                if deps:
+                    found = True
+                    for dep in deps:
+                        st.markdown(
+                            f'<p class="hazard-text">● I{i+1} depends on I{dep+1}</p>',
+                            unsafe_allow_html=True
+                        )
+
+            if not found:
+                st.success("No RAW hazards detected.")
+            else:
+                if st.session_state.schedule is not None:
+                    st.success("No RAW hazards detected in this configuration.")
+        else:
+           st.info("Run simulation to analyze hazards.")
     else:
         st.info("No instructions added yet.")
 
@@ -158,24 +188,21 @@ with col2:
         schedule = st.session_state.schedule
         fwd = st.session_state.fwd
         
-        # --- NEW: Create a mapping for forwarding info ---
-        fwd_src_map = {} # (instr_idx, cycle) -> list of strings
-        fwd_dst_map = {} # (instr_idx, cycle) -> list of strings
+        # --- Create a mapping for forwarding info ---
+        fwd_src_map = {} 
+        fwd_dst_map = {} 
         
         for f in fwd:
             src_idx, src_cycle = f[0]
             dst_idx, dst_cycle = f[1]
             
-            # Map source info (e.g., "forwarded to I2, C5")
             if (src_idx, src_cycle) not in fwd_src_map:
                 fwd_src_map[(src_idx, src_cycle)] = []
             fwd_src_map[(src_idx, src_cycle)].append(f"to I{dst_idx+1}, C{dst_cycle}")
             
-            # Map destination info (e.g., "from I1, C4")
             if (dst_idx, dst_cycle) not in fwd_dst_map:
                 fwd_dst_map[(dst_idx, dst_cycle)] = []
             fwd_dst_map[(dst_idx, dst_cycle)].append(f"from I{src_idx+1}, C{src_cycle}")
-        # ------------------------------------------------
 
         # Calculate max cycle
         max_cycle = 0
@@ -183,7 +210,7 @@ with col2:
             if instr:
                 max_cycle = max(max_cycle, max(instr.keys()))
         
-        # Create HTML table with updated styles
+        # HTML table styling
         html = """
         <style>
             .pipeline-viz {
@@ -204,7 +231,7 @@ with col2:
                 padding: 8px;
                 text-align: center;
                 background-color: white;
-                min-height: 60px; /* Ensure space for labels */
+                min-height: 60px;
             }
             .stage-IF { background-color: #e3f2fd !important; color: #1565c0; font-weight: bold; }
             .stage-ID { background-color: #f3e5f5 !important; color: #6a1b9a; font-weight: bold; }
@@ -213,8 +240,6 @@ with col2:
             .stage-WB { background-color: #fce4ec !important; color: #c2185b; font-weight: bold; }
             .stage-MEMWB { background-color: #e0f2f1 !important; color: #00695c; font-weight: bold; }
             .stage-STALL { background-color: #ffebee !important; color: #c62828; font-weight: bold; }
-            
-            /* NEW: Forwarding Label Styles */
             .fwd-label {
                 font-size: 0.65rem;
                 font-weight: normal;
@@ -241,8 +266,6 @@ with col2:
                 stage = instr.get(c, "")
                 if stage:
                     stage_class = f"stage-{stage.replace('/', '')}"
-                    
-                    # Check for forwarding labels
                     fwd_info = ""
                     if (i, c) in fwd_src_map:
                         for text in fwd_src_map[(i, c)]:
@@ -250,7 +273,6 @@ with col2:
                     if (i, c) in fwd_dst_map:
                         for text in fwd_dst_map[(i, c)]:
                             fwd_info += f'<span class="fwd-label fwd-from">fwd {text}</span>'
-                    
                     html += f'<td class="{stage_class}">{stage}{fwd_info}</td>'
                 else:
                     html += '<td></td>'
