@@ -16,6 +16,16 @@ class pipelined4StageFwd:
         self.schedule = [{} for _ in range(len(instr_arr))] 
         self.fwd = []
         # Gets the index of an instr in the order they came in for a provided instr
+
+    def get_raws(self):
+        n = 5
+        for index, i in enumerate(self.instr_arr[:-1]):
+            dest = i['dst']
+            end = index + n + 1 if index+n < len(self.instr_arr) else index - (index-len(self.instr_arr)) + 1
+            for indexj, j in enumerate(self.instr_arr[index+1: end]):
+                if dest in j['src']:
+                    self.raw[indexj+index+1].append(index)
+                    
     def get_idx(self, instr): 
         for i in range(len(self.instr_arr)):
             if self.instr_arr[i] == instr:
@@ -155,6 +165,15 @@ class pipelined5StageFwd:
         self.regAvail = regAvail
         self.schedule = [{} for _ in range(len(instr_arr))] 
         self.fwd = []
+
+    def get_raws(self):
+        n = 5
+        for index, i in enumerate(self.instr_arr[:-1]):
+            dest = i['dst']
+            end = index + n + 1 if index+n < len(self.instr_arr) else index - (index-len(self.instr_arr)) + 1
+            for indexj, j in enumerate(self.instr_arr[index+1: end]):
+                if dest in j['src']:
+                    self.raw[indexj+index+1].append(index)
     
     # Gets the index of an instr in the order they came in for a provided instr
     def get_idx(self, instr): 
@@ -294,6 +313,16 @@ class pipelined4StageStall:
         self.regAvail = regAvail
         self.schedule = [{} for _ in range(len(instr_arr))] 
         # Gets the index of an instr in the order they came in for a provided instr
+
+    def get_raws(self):
+        n = 5
+        for index, i in enumerate(self.instr_arr[:-1]):
+            dest = i['dst']
+            end = index + n + 1 if index+n < len(self.instr_arr) else index - (index-len(self.instr_arr)) + 1
+            for indexj, j in enumerate(self.instr_arr[index+1: end]):
+                if dest in j['src']:
+                    self.raw[indexj+index+1].append(index)
+    
     def get_idx(self, instr): 
         for i in range(len(self.instr_arr)):
             if self.instr_arr[i] == instr:
@@ -419,6 +448,17 @@ class pipelined5StageStall:
         self.regAvail = regAvail
         self.schedule = [{} for _ in range(len(instr_arr))] 
         # Gets the index of an instr in the order they came in for a provided instr
+
+    def get_raws(self):
+        n = 5
+        for index, i in enumerate(self.instr_arr[:-1]):
+            dest = i['dst']
+            end = index + n + 1 if index+n < len(self.instr_arr) else index - (index-len(self.instr_arr)) + 1
+            for indexj, j in enumerate(self.instr_arr[index+1: end]):
+                if dest in j['src']:
+                    self.raw[indexj+index+1].append(index)
+
+    
     def get_idx(self, instr): 
         for i in range(len(self.instr_arr)):
             if self.instr_arr[i] == instr:
