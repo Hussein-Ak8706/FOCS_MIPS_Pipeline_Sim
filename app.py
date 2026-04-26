@@ -160,8 +160,13 @@ with col1:
         # NEW: RAW Hazards Section
         st.divider()
         st.header("⚠️ RAW Hazards Detected")
-        if st.session_state.raw:
+
+        if st.session_state.schedule is None:
+            st.info("Run simulation to analyze hazards.")
+
+        else:
             found = False
+
             for i, deps in enumerate(st.session_state.raw):
                 if deps:
                     found = True
@@ -172,12 +177,7 @@ with col1:
                         )
 
             if not found:
-                st.success("No RAW hazards detected.")
-            else:
-                if st.session_state.schedule is not None:
-                    st.success("No RAW hazards detected in this configuration.")
-        else:
-           st.info("Run simulation to analyze hazards.")
+                st.success("No RAW hazards detected in this configuration.")
     else:
         st.info("No instructions added yet.")
 
@@ -286,3 +286,4 @@ with col2:
 # Footer
 st.divider()
 st.markdown("<div style='text-align: center; color: #666;'>Plaksha Orbital Computing Deck | CS2011: Foundations of Computer Systems</div>", unsafe_allow_html=True)
+
