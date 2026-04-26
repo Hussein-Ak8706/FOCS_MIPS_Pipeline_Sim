@@ -74,7 +74,7 @@ st.markdown("""
 # TITLE
 # ---------------------------------------------------
 st.markdown('<div class="main-header">🚀 Plaksha Orbital Pipeline Deck</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-header">Step-by-Step Processor Pipeline Simulator</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-header">Pipeline Simulator (Step + Full View)</div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------
 # SESSION STATE
@@ -86,7 +86,8 @@ defaults = {
     "raw": [],
     "simulator": None,
     "current_cycle": 1,
-    "max_cycle": 1
+    "max_cycle": 1,
+    "view_mode": "Step-by-Step"
 }
 
 for key, val in defaults.items():
@@ -111,12 +112,15 @@ with st.sidebar:
     )
 
     st.divider()
-
     st.header("📝 Add Instruction")
 
-    instruction_type = st.selectbox("Instruction Type", ["ADD", "SUB", "LW", "SW"])
+    instruction_type = st.selectbox(
+        "Instruction Type",
+        ["ADD", "SUB", "LW", "SW"]
+    )
 
     if instruction_type in ["ADD", "SUB"]:
+
         c1, c2, c3 = st.columns(3)
 
         with c1:
@@ -131,6 +135,7 @@ with st.sidebar:
         instruction = f"{instruction_type} {dst}, {s1}, {s2}"
 
     elif instruction_type == "LW":
+
         c1, c2, c3 = st.columns(3)
 
         with c1:
@@ -145,6 +150,7 @@ with st.sidebar:
         instruction = f"LW {dst}, {off}({base})"
 
     else:
+
         c1, c2, c3 = st.columns(3)
 
         with c1:
@@ -167,7 +173,6 @@ with st.sidebar:
 
     st.divider()
 
-    # RUN
     if st.button("▶️ Run Simulation", type="primary", use_container_width=True):
 
         if not st.session_state.instructions:
@@ -182,18 +187,18 @@ with st.sidebar:
                 old_stdout = sys.stdout
                 sys.stdout = StringIO()
 
-                # Select simulator
                 if pipeline_type == "4-Stage Pipeline":
-                    if hazard_mode == "Forwarding (Advanced)":
-                        sim = pipelined4StageFwd(regAvail, parsed)
-                    else:
-                        sim = pipelined4StageStall(regAvail, parsed)
-
+                    sim = (
+                        pipelined4StageFwd(regAvail, parsed)
+                        if hazard_mode == "Forwarding (Advanced)"
+                        else pipelined4StageStall(regAvail, parsed)
+                    )
                 else:
-                    if hazard_mode == "Forwarding (Advanced)":
-                        sim = pipelined5StageFwd(regAvail, parsed)
-                    else:
-                        sim = pipelined5StageStall(regAvail, parsed)
+                    sim = (
+                        pipelined5StageFwd(regAvail, parsed)
+                        if hazard_mode == "Forwarding (Advanced)"
+                        else pipelined5StageStall(regAvail, parsed)
+                    )
 
                 sim.createShedule()
 
@@ -205,7 +210,6 @@ with st.sidebar:
                 st.session_state.simulator = sim
                 st.session_state.current_cycle = 1
 
-                # max cycle
                 mc = 1
                 for row in sim.schedule:
                     if row:
@@ -239,6 +243,7 @@ with left:
     if st.session_state.instructions:
 
         for i, instr in enumerate(st.session_state.instructions):
+
             c1, c2 = st.columns([4, 1])
 
             with c1:
@@ -279,32 +284,45 @@ with right:
 
     if st.session_state.schedule is not None:
 
-        c1, c2, c3 = st.columns(3)
+        st.radio(
+            "Display Mode",
+            ["Step-by-Step", "Full Schedule"],
+            horizontal=True,
+            key="view_mode"
+        )
 
-        with c1:
-            if st.button("⬅ Previous"):
-                st.session_state.current_cycle = max(
-                    1,
-                    st.session_state.current_cycle - 1
-                )
-                st.rerun()
+        if st.session_state.view_mode == "Step-by-Step":
 
-        with c2:
-            if st.button("➡ Next"):
-                st.session_state.current_cycle = min(
-                    st.session_state.max_cycle,
-                    st.session_state.current_cycle + 1
-                )
-                st.rerun()
+            c1, c2, c3 = st.columns(3)
 
-        with c3:
-            st.metric("Current Cycle", st.session_state.current_cycle)
+            with c1:
+                if st.button("⬅ Previous"):
+                    st.session_state.current_cycle = max(
+                        1,
+                        st.session_state.current_cycle - 1
+                    )
+                    st.rerun()
 
-        visible = st.session_state.current_cycle
+            with c2:
+                if st.button("➡ Next"):
+                    st.session_state.current_cycle = min(
+                        st.session_state.max_cycle,
+                        st.session_state.current_cycle + 1
+                    )
+                    st.rerun()
+
+            with c3:
+                st.metric("Current Cycle", st.session_state.current_cycle)
+
+            visible = st.session_state.current_cycle
+
+        else:
+            visible = st.session_state.max_cycle
+            st.success(f"Showing all {visible} cycles")
+
         schedule = st.session_state.schedule
         fwd = st.session_state.fwd
 
-        # forwarding maps
         src_map = {}
         dst_map = {}
 
